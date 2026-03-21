@@ -1,0 +1,35 @@
+{
+  "project_name": "parkRabbit_Clone",
+  "version": "1.0.0",
+  "layers": {
+    "frontend": {
+      "path": "apps/web",
+      "allowed_imports": ["@parkrabbit/api-types", "lucide-react", "shadcn/*"],
+      "forbidden_imports": ["@parkrabbit/server-logic", "pg", "firebase-admin"],
+      "description": "The Vercel-hosted UI. Must never contain direct database credentials or server-side logic."
+    },
+    "backend": {
+      "path": "apps/api",
+      "allowed_imports": ["@parkrabbit/database", "@parkrabbit/services"],
+      "forbidden_imports": ["next/*", "react"],
+      "description": "Google Cloud Run / Functions layer. Handles the heavy lifting and business logic."
+    },
+    "automation": {
+      "path": "workflows/n8n",
+      "allowed_imports": ["node-fetch", "crypto"],
+      "description": "n8n custom logic nodes. Used for the Arch-Guard plugin orchestrator."
+    }
+  },
+  "dependency_rules": [
+    {
+      "id": "STRICT_LAYER_SEPARATION",
+      "rule": "Frontend components cannot import DB clients directly.",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "NAMING_CONVENTION",
+      "rule": "All API routes must follow the pattern [resource].route.ts",
+      "severity": "WARNING"
+    }
+  ]
+}
