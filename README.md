@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Topic: 1. **Event-driven notification system** – Services communicate via RabbitMQ/NATS/Kafka to send notifications based on user actions.
 # 🚗 Parking Management System (Event-Driven Architecture)
 
@@ -437,3 +438,7 @@ frontend/
 
 # ===============END================
 
+=======
+# parkRabbit_Clone_hackathon
+Cloned the project to test for the hackathon using "Sentinel"
+>>>>>>> 639610a675616d6317f28ecf04aaab154b060a2e
