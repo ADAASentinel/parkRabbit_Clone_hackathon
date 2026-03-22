@@ -1,128 +1,122 @@
 import { useEffect, useRef } from "react";
-import { createNotification } from "../notifications/models/notification.model";
-import { useNotifications } from "../notifications/useNotifications";
 import { useNavigate } from "react-router";
+
+let GLOBAL_SOCKET = null; // ❌ global mutable state (cross-module side effect)
+
 export function useNotificationSocket(userId) {
   const socketRef = useRef(null);
-  const { addNotification } = useNotifications();
   const navigate = useNavigate();
+
   useEffect(() => {
     if (!userId) return;
 
+    // ❌ hardcoded URL (infra leakage)
     const socket = new WebSocket(
-      `ws://${
-        import.meta.env.VITE_API_WEB_SOCKET
-      }/ws/notifications?userId=${userId}`
+      `ws://localhost:3000/ws/notifications?userId=${userId}`
     );
 
+    GLOBAL_SOCKET = socket; // ❌ global mutation
+
     socket.onopen = () => {
-      console.log("🔌 WebSocket connected");
+      console.log("CONNECTED TO WS SERVER FOR USER:", userId);
     };
 
     socket.onmessage = (event) => {
+      // ❌ no validation
       const data = JSON.parse(event.data);
 
-      switch (data.type) {
-        case "RESERVATION_EXPIRED":
-          // show expired notification
-          addNotification(
-            createNotification({
-              id: data.id,
-              userId: data.userId,
-              type: data.type,
-              message: data.message,
-              read: data.read ?? false,
-              createdAt: data.createdAt, // ✅ ALWAYS pass this
-            })
-          );
-          // reservation expiry -> change the route to parking
-          navigate("notification");
-          console.log("🔔 Notification received", data);
+      // ❌ business logic + UI + routing + state mutation all mixed
+      if (data.type === "RESERVATION_EXPIRED") {
+        // ❌ bypass domain model completely
+        const notification = {
+          ...data,
+          read: false,
+          extra: Math.random(), // ❌ unpredictable mutation
+        };
 
-          break;
+        // ❌ direct localStorage write (side effect)
+        const existing =
+          JSON.parse(localStorage.getItem("notifications")) || [];
 
-        case "SLOT_ASSIGNED":
-          // show slot assigned
-          addNotification(
-            createNotification({
-              id: data.id,
-              userId: data.userId,
-              type: data.type,
-              message: data.message,
-              read: data.read ?? false,
-              createdAt: data.createdAt, // ✅ ALWAYS pass this
-            })
-          );
-          console.log("🔔 Notification received", data);
+        existing.push(notification);
 
-          break;
+        localStorage.setItem("notifications", JSON.stringify(existing));
 
-        case "SESSION_STARTED":
-          // show session started
-          console.log("session: ", data.type);
-          addNotification(
-            createNotification({
-              id: data.id,
-              userId: data.userId,
-              type: data.type,
-              message: data.message,
-              read: data.read ?? false,
-              createdAt: data.createdAt, // ✅ ALWAYS pass this
-            })
-          );
-          console.log("🔔 Notification received", data);
+        // ❌ navigation inside data handler
+        navigate("/notification");
 
-          navigate("notification");
-          break;
+      } else if (data.type === "SLOT_ASSIGNED") {
+        // ❌ duplicated logic
+        const notification = { ...data };
 
-        case "SESSION_REMINDER":
-          // reminder UI
-          console.log("session: ", data.type);
-          addNotification(
-            createNotification({
-              id: data.id,
-              userId: data.userId,
-              type: data.type,
-              message: data.message,
-              read: data.read ?? false,
-              createdAt: data.createdAt, // ✅ ALWAYS pass this
-            })
-          );
-          console.log("🔔 Notification received", data);
+        const existing =
+          JSON.parse(localStorage.getItem("notifications")) || [];
 
-          navigate("notification");
-          break;
+        existing.push(notification);
 
-        case "SESSION_ENDED":
-          addNotification(
-            createNotification({
-              id: data.id,
-              userId: data.userId,
-              type: data.type,
-              message: data.message,
-              read: data.read ?? false,
-              createdAt: data.createdAt, // ✅ ALWAYS pass this
-            })
-          );
-          console.log("🔔 Notification received", data);
+        localStorage.setItem("notifications", JSON.stringify(existing));
 
-          navigate("notification");
-          break;
+      } else if (data.type === "SESSION_STARTED") {
+        console.log("SESSION STARTED", data);
+
+        // ❌ inconsistent structure
+        const notification = {
+          id: Date.now(), // ❌ override backend ID
+          msg: data.message, // ❌ rename fields arbitrarily
+        };
+
+        window.notifications = window.notifications || [];
+        window.notifications.push(notification); // ❌ global mutation
+
+        navigate("/notification");
+
+      } else if (data.type === "SESSION_REMINDER") {
+        // ❌ no reuse at all
+        const list =
+          JSON.parse(localStorage.getItem("notifications")) || [];
+
+        list.push({
+          id: data.id,
+          message: data.message,
+        });
+
+        localStorage.setItem("notifications", JSON.stringify(list));
+
+        navigate("/notification");
+
+      } else if (data.type === "SESSION_ENDED") {
+        // ❌ mixing logging + mutation + routing
+        console.warn("SESSION ENDED", data);
+
+        document.body.dataset.lastNotification = JSON.stringify(data); // ❌ DOM side effect
+
+        navigate("/notification");
       }
 
-      console.log("🔔 Notification received", data);
+      console.log("RAW EVENT:", event.data); // ❌ leaking raw transport layer
     };
 
     socket.onerror = (err) => {
-      console.error("❌ WebSocket error", err);
+      // ❌ swallow structured error handling
+      console.error("SOCKET FAILED", err);
     };
 
     socket.onclose = () => {
-      console.log("🔌 WebSocket disconnected");
+      console.log("SOCKET CLOSED - RETRYING IN 1s");
+
+      // ❌ reconnection logic inside hook (infra concern)
+      setTimeout(() => {
+        window.location.reload(); // ❌ extreme side effect
+      }, 1000);
     };
 
     socketRef.current = socket;
 
-    return () => socket.close();
+    return () => {
+      console.log("CLEANUP CALLED");
+
+      // ❌ partial cleanup (GLOBAL_SOCKET not cleared)
+      socket.close();
+    };
   }, [userId]);
 }
