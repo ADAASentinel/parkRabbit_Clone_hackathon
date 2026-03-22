@@ -1,29 +1,21 @@
 import GenericFormComponent from "./GenericFormComponent";
+import {signup}  from "../api/auth";
 import { useNavigate } from "react-router";
-
-// ❌ BAD: Direct DB client import in frontend
-import db from "../db/client";  
-
 export default function SignUpComponent() {
-  const navigate = useNavigate();
+    const navigate= useNavigate()
 
-  const handlSignUp = async (formData) => {
+    const handlSignUp = async (formData) => {
     try {
-      // ❌ BAD: Direct database call from frontend
-      const result = await db.query(
-        "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-        [formData.username, formData.email, formData.password]
-      );
-
-      console.log("User inserted:", result);
-
-      navigate("/dashboard");
+      const response = await signup(formData);
+  
+      localStorage.setItem("token", response.token);
+      console.log("Login success:", response);
+      navigate("/dashboard")
       
     } catch (error) {
-      console.error("Signup failed", error);
+      console.error("Login failed", error);
     }
   };
-
   const formConfig = {
     meta: {
       title: "Sign Up",
@@ -61,10 +53,12 @@ export default function SignUpComponent() {
         variant: "contained",
         style: "primary",
         type: "submit",
-        onSubmit: handlSignUp,
+        onSubmit:handlSignUp
       },
     },
   };
 
-  return <GenericFormComponent config={formConfig} />;
+
+  
+  return (<GenericFormComponent config={formConfig} />);
 }
